@@ -67,6 +67,71 @@ clawkeeper restore-apply ~/openclaw-backup.tgz
 clawkeeper restore-apply ~/openclaw-backup.tgz --restart-gateway
 ```
 
+## Repo rule detector (script)
+If you need to quickly see what GitHub repo rules might block merges (repo rulesets + classic branch protection), run:
+
+```bash
+node scripts/repo-rule-detector.mjs dtzp555-max/ocm --branch main
+```
+
+Example output (dtzp555-max/ocm):
+
+```json
+{
+  "repo": "dtzp555-max/ocm",
+  "url": "https://github.com/dtzp555-max/ocm",
+  "defaultBranch": "main",
+  "branch": "main",
+  "allowedMergeMethods": {
+    "mergeCommit": true,
+    "squash": true,
+    "rebase": true
+  },
+  "rulesetsRulePresence": {
+    "required_linear_history": true,
+    "non_fast_forward": true,
+    "deletion": true
+  },
+  "branchProtection": {
+    "enabled": false
+  },
+  "rulesets": [
+    {
+      "id": 13362557,
+      "name": "ocm",
+      "enforcement": "active",
+      "target": null,
+      "rules": {
+        "pull_request": {
+          "present": true,
+          "parameters": {
+            "required_review_thread_resolution": true,
+            "allowed_merge_methods": [
+              "merge",
+              "squash",
+              "rebase"
+            ],
+            "required_approving_review_count": 0,
+            "require_code_owner_review": false,
+            "dismiss_stale_reviews_on_push": false,
+            "require_last_push_approval": false
+          }
+        },
+        "required_linear_history": {
+          "present": true
+        },
+        "non_fast_forward": {
+          "present": true
+        },
+        "deletion": {
+          "present": true
+        }
+      }
+    }
+  ]
+}
+```
+
 ## Safety notes
 This tool edits `~/.openclaw/openclaw.json`.
 - Always makes a timestamped backup before modifying config.
