@@ -2,6 +2,7 @@
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { restoreApply, restoreGuide } from './restore.js';
 
 type Json = any;
 
@@ -223,6 +224,8 @@ if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   console.log('  clawkeeper switch openai|ollama');
   console.log('  clawkeeper backup-plan [--json]');
   console.log('  clawkeeper verify-backup <path.tgz>');
+  console.log('  clawkeeper restore-guide');
+  console.log('  clawkeeper restore-apply <path.tgz>');
   process.exit(0);
 }
 
@@ -255,6 +258,20 @@ else if (cmd === 'verify-backup') {
     }
   } catch (e: any) {
     die(`Failed to read tarball: ${e?.message || e}`);
+  }
+}
+else if (cmd === 'restore-guide') {
+  restoreGuide({ home: HOME });
+}
+else if (cmd === 'restore-apply') {
+  const file = args[0];
+  if (!file) die('Usage: clawkeeper restore-apply <path.tgz> [--restart-gateway]');
+  const restartGateway = args.includes('--restart-gateway');
+  const tgz = untildify(file);
+  try {
+    restoreApply({ home: HOME, tgzPath: tgz, restartGateway });
+  } catch (e: any) {
+    die(String(e?.message || e));
   }
 }
 else if (cmd === 'switch') {
