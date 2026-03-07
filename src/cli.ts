@@ -60,7 +60,39 @@ function restartGateway() {
   }
 }
 
-function doctor() {
+async function openaiEmbeddingProbe(apiKey: string): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const res = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: 'clawkeeper doctor probe' })
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, detail: `HTTP ${res.status} ${res.statusText}${text ? `: ${text.slice(0, 200)}` : ''}` };
+    }
+    const data: any = await res.json();
+    const n = Array.isArray(data?.data) ? data.data.length : 0;
+    return { ok: n > 0, detail: `ok (vectors=${n})` };
+  } catch (e: any) {
+    return { ok: false, detail: String(e?.message || e) };
+  }
+}
+
+function parseOllamaTags(raw: string): string[] {
+  try {
+    const j = JSON.parse(raw);
+    const models: any[] = Array.isArray(j?.models) ? j.models : [];
+    return models.map(m => m?.name).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function doctor() {
   let cfg: any;
   try {
     cfg = loadConfig();
@@ -98,16 +130,23 @@ function doctor() {
   // Provider-specific health checks
   if (provider === 'ollama') {
     try {
-      // minimal tags call
-      run('curl', ['-sS', '-m', '3', 'http://127.0.0.1:11434/api/tags'], { quiet: true });
+      const raw = run('curl', ['-sS', '-m', '3', 'http://127.0.0.1:11434/api/tags'], { quiet: true });
+      const names = parseOllamaTags(raw);
       console.log('ollama: reachable');
+      const hasNomic = names.includes('nomic-embed-text');
+      console.log(`ollama.model.nomic-embed-text: ${hasNomic ? 'present' : 'missing (run: ollama pull nomic-embed-text)'}`);
     } catch {
       console.log('ollama: NOT reachable at http://127.0.0.1:11434');
     }
   }
 
   if (provider === 'openai') {
-    console.log('openai: configured (note: this tool does not call OpenAI APIs)');
+    if (hasOpenAIKey) {
+      const probe = await openaiEmbeddingProbe(ms.remote.apiKey);
+      console.log(`openai.embeddings.probe: ${probe.ok ? 'OK' : 'FAIL'} (${probe.detail})`);
+    } else {
+      console.log('openai.embeddings.probe: SKIP (no apiKey configured)');
+    }
   }
 }
 
@@ -152,17 +191,17 @@ const [,, cmd, ...args] = process.argv;
 if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   console.log('clawkeeper');
   console.log('Commands:');
-  console.log('  memops doctor');
-  console.log('  memops switch openai|ollama');
-  console.log('  memops backup-plan');
+  console.log('  clawkeeper doctor');
+  console.log('  clawkeeper switch openai|ollama');
+  console.log('  clawkeeper backup-plan');
   process.exit(0);
 }
 
-if (cmd === 'doctor') doctor();
+if (cmd === 'doctor') await doctor();
 else if (cmd === 'backup-plan') backupPlan();
 else if (cmd === 'switch') {
   const to = args[0];
-  if (to !== 'openai' && to !== 'ollama') die('Usage: memops switch openai|ollama');
+  if (to !== 'openai' && to !== 'ollama') die('Usage: clawkeeper switch openai|ollama');
   switchProvider(to);
 } else {
   die(`Unknown command: ${cmd}`);
