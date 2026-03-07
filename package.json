@@ -5,6 +5,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
+    "clawkeeper": "./dist/cli.js",
     "memops": "./dist/cli.js"
   },
   "scripts": {
