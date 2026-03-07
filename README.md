@@ -1,6 +1,6 @@
-# openclaw-memops
+# clawkeeper
 
-Memory Ops Kit for OpenClaw.
+Clawkeeper is a Memory Ops Kit for OpenClaw.
 
 Goals:
 - Make OpenClaw memory *operationally reliable* (no more silent failures when embeddings billing breaks).

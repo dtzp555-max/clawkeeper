@@ -150,7 +150,7 @@ function switchProvider(to: 'openai' | 'ollama') {
 const [,, cmd, ...args] = process.argv;
 
 if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
-  console.log('openclaw-memops');
+  console.log('clawkeeper');
   console.log('Commands:');
   console.log('  memops doctor');
   console.log('  memops switch openai|ollama');
