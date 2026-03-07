@@ -1,0 +1,23 @@
+{
+  "name": "openclaw-memops",
+  "version": "0.1.0",
+  "description": "Memory Ops Kit for OpenClaw: doctor + provider switch (OpenAI/Ollama) + backup plan + recovery helpers.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "memops": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --enable-source-maps dist/cli.js",
+    "lint": "node -c dist/cli.js || true",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}
