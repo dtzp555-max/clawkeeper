@@ -14,6 +14,16 @@ export function run(cmd: string, args: string[], quiet = false): string {
   return s;
 }
 
+function checkPaths(paths: string[]): { ok: string[]; missing: string[] } {
+  const ok: string[] = [];
+  const missing: string[] = [];
+  for (const p of paths) {
+    if (existsSync(p)) ok.push(p);
+    else missing.push(p);
+  }
+  return { ok, missing };
+}
+
 export function restoreGuide(opts: { home: string }) {
   const { home } = opts;
   const lines: string[] = [];
@@ -65,6 +75,24 @@ export function restoreApply(opts: { home: string; tgzPath: string; restartGatew
     console.log(`openclaw config validate: WARN (${e?.message || e})`);
   }
 
+  const required = [
+    join(oc, 'openclaw.json'),
+    join(oc, 'credentials'),
+    join(oc, 'agents'),
+    join(oc, 'memory'),
+    join(oc, 'workspaces'),
+    join(oc, 'cron')
+  ];
+  const checked = checkPaths(required);
+  if (checked.ok.length) {
+    console.log('Restored paths present:');
+    for (const p of checked.ok) console.log(`- ${p}`);
+  }
+  if (checked.missing.length) {
+    console.log('WARN missing restored paths:');
+    for (const p of checked.missing) console.log(`- ${p}`);
+  }
+
   if (restartGateway) {
     try {
       run('openclaw', ['gateway', 'restart'], true);
@@ -75,15 +103,12 @@ export function restoreApply(opts: { home: string; tgzPath: string; restartGatew
     }
   } else {
     console.log('NOTE: gateway was NOT restarted (safe default).');
-    console.log('To restart gateway after restore, run: openclaw gateway restart');
-    console.log('If restart fails, run: openclaw gateway install --force');
-  }
-
-  try {
-    const s = run('openclaw', ['status'], true);
-    console.log('openclaw status: OK');
-    console.log(s.split('\n').slice(0, 20).join('\n'));
-  } catch {
-    // ignore
+    console.log('This is normal during restore on a new or temporary environment.');
+    console.log('Next steps:');
+    console.log('- Run: openclaw config validate');
+    console.log('- Then run: openclaw gateway restart');
+    console.log('- If restart fails, run: openclaw gateway install --force');
+    console.log('- After gateway is up, run: openclaw status');
+    console.log('- Then run: openclaw memory status');
   }
 }
