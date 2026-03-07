@@ -14,10 +14,12 @@ Goals:
   - Shows OpenClaw memory status when available
   - For `provider=openai`, runs a real minimal embeddings probe
   - For `provider=ollama`, checks reachability and whether `nomic-embed-text` is present
-- `clawkeeper switch openai|ollama`
-  - Switches `agents.defaults.memorySearch.provider`
-  - Makes a timestamped backup of `~/.openclaw/openclaw.json`
-  - Restarts the gateway after switching
+- `clawkeeper switch openai|ollama [--dry-run]`
+  - `--dry-run` previews the provider/config change without writing config or restarting the gateway
+  - Real switches update `agents.defaults.memorySearch.provider`
+  - Switching to `ollama` removes `memorySearch.remote` from that section to avoid stale OpenAI config there
+  - Makes a timestamped backup of `~/.openclaw/openclaw.json` before any real write
+  - Restarts the gateway after a real config change
 - `clawkeeper backup-plan [--json]`
   - Prints recommended daily/weekly backup coverage
   - `--json` emits machine-readable include/exclude structure
@@ -55,6 +57,8 @@ memops --help
 clawkeeper doctor
 clawkeeper switch ollama
 clawkeeper switch openai
+clawkeeper switch ollama --dry-run
+clawkeeper switch openai --dry-run
 clawkeeper backup-plan
 clawkeeper backup-plan --json
 clawkeeper verify-backup ~/openclaw-backup.tgz

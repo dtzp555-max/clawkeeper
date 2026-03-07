@@ -188,10 +188,13 @@ function backupPlan(opts: { json?: boolean } = {}) {
   for (const p of plan.weeklyFull.include) console.log(`- ${p}`);
 }
 
-function switchProvider(to: 'openai' | 'ollama') {
+function switchProvider(to: 'openai' | 'ollama', opts: { dryRun?: boolean } = {}) {
   const cfg = loadConfig();
   const path = ['agents', 'defaults', 'memorySearch'];
-  const ms = get(cfg, path) || {};
+  const msBefore = structuredClone(get(cfg, path) || {});
+  const from = msBefore?.provider;
+  const hadRemote = !!msBefore?.remote;
+  const hadOpenAIKey = !!msBefore?.remote?.apiKey;
 
   if (to === 'ollama') {
     set(cfg, [...path, 'provider'], 'ollama');
@@ -200,9 +203,37 @@ function switchProvider(to: 'openai' | 'ollama') {
   } else {
     set(cfg, [...path, 'provider'], 'openai');
     // keep existing remote.apiKey if present; do not prompt
-    if (!ms?.remote?.apiKey) {
-      console.error('WARN: memorySearch.remote.apiKey is not set. Configure it in openclaw.json first.');
+  }
+
+  const msAfter = get(cfg, path) || {};
+  const removedRemote = hadRemote && !msAfter?.remote;
+  const changed = JSON.stringify(msBefore) !== JSON.stringify(msAfter);
+
+  if (opts.dryRun) {
+    console.log('Dry run: no changes applied.');
+    console.log(`config: ${OPENCLAW_CONFIG}`);
+    console.log(`memorySearch.provider: ${from} -> ${to}`);
+    if (to === 'ollama') {
+      console.log(`memorySearch.remote: ${removedRemote ? 'would be removed' : 'no change'}`);
+    } else {
+      console.log(`memorySearch.remote.apiKey.present: ${hadOpenAIKey}`);
+      if (!hadOpenAIKey) {
+        console.log('WARN: memorySearch.remote.apiKey is not set. A real switch to openai would still proceed, but memory search may remain broken until configured.');
+      }
     }
+    console.log(`config mutation: ${changed ? 'would update openclaw.json' : 'no-op (already matches requested provider)'}`);
+    console.log(`config backup: ${changed ? 'would create timestamped backup before write' : 'would skip (no write needed)'}`);
+    console.log(`gateway restart: ${changed ? 'would restart after config write' : 'would skip (no write needed)'}`);
+    return;
+  }
+
+  if (to === 'openai' && !hadOpenAIKey) {
+    console.error('WARN: memorySearch.remote.apiKey is not set. Configure it in openclaw.json first.');
+  }
+
+  if (!changed) {
+    console.log(`memorySearch.provider is already ${to}; no config changes made and gateway restart skipped.`);
+    return;
   }
 
   saveConfig(cfg);
@@ -221,7 +252,7 @@ if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   console.log('clawkeeper');
   console.log('Commands:');
   console.log('  clawkeeper doctor');
-  console.log('  clawkeeper switch openai|ollama');
+  console.log('  clawkeeper switch openai|ollama [--dry-run]');
   console.log('  clawkeeper backup-plan [--json]');
   console.log('  clawkeeper verify-backup <path.tgz>');
   console.log('  clawkeeper restore-guide');
@@ -275,9 +306,10 @@ else if (cmd === 'restore-apply') {
   }
 }
 else if (cmd === 'switch') {
-  const to = args[0];
-  if (to !== 'openai' && to !== 'ollama') die('Usage: clawkeeper switch openai|ollama');
-  switchProvider(to);
+  const to = args.find(arg => arg === 'openai' || arg === 'ollama');
+  const dryRun = args.includes('--dry-run');
+  if (to !== 'openai' && to !== 'ollama') die('Usage: clawkeeper switch openai|ollama [--dry-run]');
+  switchProvider(to, { dryRun });
 } else {
   die(`Unknown command: ${cmd}`);
 }
