@@ -13,6 +13,15 @@
  *   node scripts/repo-rule-detector.mjs owner/repo
  *   node scripts/repo-rule-detector.mjs owner/repo --branch main
  *
+ * Example:
+ *   node scripts/repo-rule-detector.mjs microsoft/vscode
+ *
+ * Output notes:
+ *   - rulesets[].rules.pull_request prints fields like:
+ *     required_review_thread_resolution, allowed_merge_methods,
+ *     required_approving_review_count
+ *   - rulesets[].rules.required_linear_history / non_fast_forward are booleans
+ *
  * Requires:
  *   - gh auth
  */
@@ -72,6 +81,7 @@ function main() {
     'required_review_thread_resolution',
     'allowed_merge_methods',
     'required_approving_review_count',
+    // extras (kept for convenience / debugging)
     'require_code_owner_review',
     'dismiss_stale_reviews_on_push',
     'require_last_push_approval'
@@ -94,32 +104,38 @@ function main() {
     const prParams = prRule?.parameters ? pick(prRule.parameters, PULL_REQUEST_PARAM_KEYS) : null;
 
     return {
-      pull_request: prParams
-        ? { present: true, parameters: prParams }
-        : { present: false, parameters: null },
-      required_linear_history: { present: hasRuleType(rules, 'required_linear_history') },
-      non_fast_forward: { present: hasRuleType(rules, 'non_fast_forward') },
-      deletion: { present: hasRuleType(rules, 'deletion') }
+      pull_request: prParams,
+      required_linear_history: hasRuleType(rules, 'required_linear_history'),
+      non_fast_forward: hasRuleType(rules, 'non_fast_forward'),
+      deletion: hasRuleType(rules, 'deletion')
     };
   }
 
-  const relevantRulesets = rulesets
-    .filter(rs => rs?.enforcement && rs.enforcement !== 'disabled')
-    .filter(rs => {
-      const targets = rs?.conditions?.ref_name?.include ?? [];
-      return targets.length === 0 || targets.includes('~DEFAULT_BRANCH') || targets.includes(branch) || targets.includes(`refs/heads/${branch}`);
-    })
-    .map(rs => {
-      const details = fetchRulesetDetails(rs.id);
-      const rulesSummary = summarizeRulesetRules(details?.rules ?? []);
-      return {
-        id: rs.id,
-        name: rs.name,
-        enforcement: rs.enforcement,
-        target: rs?.conditions?.ref_name ?? null,
-        rules: rulesSummary
-      };
+  const relevantRulesets = [];
+  for (const rs of rulesets) {
+    if (!rs?.enforcement || rs.enforcement === 'disabled') continue;
+
+    const details = fetchRulesetDetails(rs.id);
+    const refCond = details?.conditions?.ref_name ?? null;
+    const targets = refCond?.include ?? [];
+
+    const isRelevant =
+      targets.length === 0 ||
+      targets.includes('~ALL') ||
+      targets.includes('~DEFAULT_BRANCH') ||
+      targets.includes(branch) ||
+      targets.includes(`refs/heads/${branch}`);
+
+    if (!isRelevant) continue;
+
+    relevantRulesets.push({
+      id: rs.id,
+      name: rs.name,
+      enforcement: rs.enforcement,
+      target: refCond,
+      rules: summarizeRulesetRules(details?.rules ?? [])
     });
+  }
 
   const allowedMergeMethods = {
     mergeCommit: !!repoInfo.allow_merge_commit,
@@ -128,9 +144,9 @@ function main() {
   };
 
   const rulesetsRulePresence = {
-    required_linear_history: relevantRulesets.some(rs => rs?.rules?.required_linear_history?.present),
-    non_fast_forward: relevantRulesets.some(rs => rs?.rules?.non_fast_forward?.present),
-    deletion: relevantRulesets.some(rs => rs?.rules?.deletion?.present)
+    required_linear_history: relevantRulesets.some(rs => !!rs?.rules?.required_linear_history),
+    non_fast_forward: relevantRulesets.some(rs => !!rs?.rules?.non_fast_forward),
+    deletion: relevantRulesets.some(rs => !!rs?.rules?.deletion)
   };
 
   const out = {
