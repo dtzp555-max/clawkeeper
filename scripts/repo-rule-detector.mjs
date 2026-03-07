@@ -16,6 +16,23 @@
  * Example:
  *   node scripts/repo-rule-detector.mjs microsoft/vscode
  *
+ * Example output (excerpt):
+ *   {
+ *     "rulesets": [
+ *       {
+ *         "rules": {
+ *           "required_linear_history": false,
+ *           "non_fast_forward": true,
+ *           "pull_request": {
+ *             "required_review_thread_resolution": false,
+ *             "allowed_merge_methods": ["merge","squash","rebase"],
+ *             "required_approving_review_count": 1
+ *           }
+ *         }
+ *       }
+ *     ]
+ *   }
+ *
  * Output notes:
  *   - rulesets[].rules.pull_request prints fields like:
  *     required_review_thread_resolution, allowed_merge_methods,
