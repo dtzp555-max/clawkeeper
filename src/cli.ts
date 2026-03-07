@@ -150,18 +150,41 @@ async function doctor() {
   }
 }
 
-function backupPlan() {
-  console.log('Backup include list (recommended):');
-  console.log('- ~/.openclaw/openclaw.json');
-  console.log('- ~/.openclaw/.env (if used)');
-  console.log('- ~/.openclaw/credentials');
-  console.log('- ~/.openclaw/agents');
-  console.log('- ~/.openclaw/memory (per-agent sqlite)');
-  console.log('- ~/.openclaw/workspaces');
-  console.log('- ~/.openclaw/workspace/main');
-  console.log('- ~/.openclaw/cron');
-  console.log('Weekly full add-on:');
-  console.log('- ~/.openclaw/agents/*/sessions');
+function backupPlan(opts: { json?: boolean } = {}) {
+  const plan = {
+    dailyEssential: {
+      include: [
+        '~/.openclaw/openclaw.json',
+        '~/.openclaw/.env',
+        '~/.openclaw/credentials',
+        '~/.openclaw/agents',
+        '~/.openclaw/memory',
+        '~/.openclaw/workspaces',
+        '~/.openclaw/workspace/main',
+        '~/.openclaw/cron'
+      ],
+      exclude: [
+        '~/.openclaw/logs',
+        '~/.openclaw/agents/*/sessions'
+      ]
+    },
+    weeklyFull: {
+      include: ['~/.openclaw/agents/*/sessions']
+    }
+  };
+
+  if (opts.json) {
+    console.log(JSON.stringify(plan, null, 2));
+    return;
+  }
+
+  console.log('Backup plan (recommended)');
+  console.log('\nDaily (essential):');
+  for (const p of plan.dailyEssential.include) console.log(`- ${p}`);
+  console.log('\nDaily excludes:');
+  for (const p of plan.dailyEssential.exclude) console.log(`- ${p}`);
+  console.log('\nWeekly add-on (full):');
+  for (const p of plan.weeklyFull.include) console.log(`- ${p}`);
 }
 
 function switchProvider(to: 'openai' | 'ollama') {
@@ -188,17 +211,52 @@ function switchProvider(to: 'openai' | 'ollama') {
 
 const [,, cmd, ...args] = process.argv;
 
+function untildify(p: string): string {
+  if (p.startsWith('~/')) return join(HOME, p.slice(2));
+  return p;
+}
+
 if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
   console.log('clawkeeper');
   console.log('Commands:');
   console.log('  clawkeeper doctor');
   console.log('  clawkeeper switch openai|ollama');
-  console.log('  clawkeeper backup-plan');
+  console.log('  clawkeeper backup-plan [--json]');
+  console.log('  clawkeeper verify-backup <path.tgz>');
   process.exit(0);
 }
 
 if (cmd === 'doctor') await doctor();
-else if (cmd === 'backup-plan') backupPlan();
+else if (cmd === 'backup-plan') {
+  const json = args.includes('--json');
+  backupPlan({ json });
+}
+else if (cmd === 'verify-backup') {
+  const file = args[0];
+  if (!file) die('Usage: clawkeeper verify-backup <path.tgz>');
+  const tgz = untildify(file);
+  try {
+    const list = execFileSync('/usr/bin/tar', ['-tzf', tgz], { stdio: ['ignore', 'pipe', 'pipe'] }).toString('utf8');
+    const required = [
+      '.openclaw/openclaw.json',
+      '.openclaw/credentials',
+      '.openclaw/agents',
+      '.openclaw/memory',
+      '.openclaw/workspaces',
+      '.openclaw/cron'
+    ];
+    const missing = required.filter(r => !list.includes(r));
+    if (missing.length) {
+      console.log('FAIL missing required paths:');
+      for (const m of missing) console.log(`- ${m}`);
+      process.exitCode = 2;
+    } else {
+      console.log('OK backup contains required paths.');
+    }
+  } catch (e: any) {
+    die(`Failed to read tarball: ${e?.message || e}`);
+  }
+}
 else if (cmd === 'switch') {
   const to = args[0];
   if (to !== 'openai' && to !== 'ollama') die('Usage: clawkeeper switch openai|ollama');
