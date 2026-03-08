@@ -148,5 +148,11 @@ This tool edits `~/.openclaw/openclaw.json`.
 - OpenClaw CLI installed on the same machine
 - Node.js 20+
 
+## Related Projects
+
+- [ocm](https://github.com/dtzp555-max/ocm) — local dashboard and built-in CLI for operating OpenClaw with less config friction.
+- [execution-agent-planner](https://github.com/dtzp555-max/execution-agent-planner) — skill for deciding when to keep work with one execution agent vs split across multiple workers.
+- [gh-pr-release-flow](https://github.com/dtzp555-max/gh-pr-release-flow) — skill for PR-first GitHub workflows, protected branches, and release-after-merge habits.
+
 ## License
 MIT
